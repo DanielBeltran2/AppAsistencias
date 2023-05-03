@@ -4,15 +4,79 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context=".menu.MainActivity"
+    android:background="#E1C699 ">
+    <!--  android:background="#DE8138 "> -->
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+     <ImageView
+         android:id="@+id/imageView"
+         android:layout_width="238dp"
+         android:layout_height="238dp"
+         android:layout_marginStart="32dp"
+         android:layout_marginTop="32dp"
+         android:layout_marginEnd="32dp"
+         android:layout_marginBottom="32dp"
+         app:layout_constraintBottom_toTopOf="@+id/editTextTextPersonName"
+         app:layout_constraintEnd_toEndOf="parent"
+         app:layout_constraintStart_toStartOf="parent"
+         app:layout_constraintTop_toTopOf="parent"
+         app:srcCompat="@drawable/logo"
+         android:background="@drawable/circle"/>
+
+     <EditText
+         android:id="@+id/editTextTextPersonName"
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+         android:layout_marginStart="32dp"
+         android:layout_marginTop="60dp"
+         android:layout_marginEnd="32dp"
+         android:layout_marginBottom="8dp"
+         android:ems="10"
+         android:hint="Numero de Control"
+         android:inputType="textPersonName"
+         android:textColor="#4c1f67"
+         android:textColorHighlight="#79C304"
+         android:textColorHint="#4c1f67"
+         app:layout_constraintBottom_toTopOf="@+id/editTextTextPassword"
+         app:layout_constraintEnd_toEndOf="parent"
+         app:layout_constraintHorizontal_bias="0.5"
+         app:layout_constraintStart_toStartOf="parent"
+         app:layout_constraintTop_toBottomOf="@+id/imageView" />
+
+     <EditText
+         android:id="@+id/editTextTextPassword"
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+         android:layout_marginStart="32dp"
+         android:layout_marginTop="8dp"
+         android:layout_marginEnd="32dp"
+         android:layout_marginBottom="90dp"
+         android:ems="10"
+         android:hint="Contraseña"
+         android:inputType="textPassword"
+         android:password="true"
+         android:textColor="#4c1f67"
+         android:textColorHint="#4c1f67"
+         app:layout_constraintBottom_toTopOf="@+id/buttonIngresar"
+         app:layout_constraintEnd_toEndOf="parent"
+         app:layout_constraintStart_toStartOf="parent"
+         app:layout_constraintTop_toBottomOf="@+id/editTextTextPersonName" />
+
+     <Button
+         android:id="@+id/buttonIngresar"
+         android:layout_width="wrap_content"
+         android:layout_height="wrap_content"
+         android:layout_marginStart="161dp"
+         android:layout_marginEnd="160dp"
+         android:layout_marginBottom="118dp"
+         android:text="Ingresar"
+         android:onClick="accionBoton"
+         app:layout_constraintBottom_toBottomOf="parent"
+         app:layout_constraintEnd_toEndOf="parent"
+         app:layout_constraintStart_toStartOf="parent"
+         app:layout_constraintTop_toBottomOf="@+id/editTextTextPassword"
+         android:background="@drawable/button_rounded"/>
+
+
+ </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/modificar"
+        android:icon="@drawable/modificar"
+        android:title="Modificar Asistencia" />
+
+    <item
+        android:id="@+id/tomarlista"
+        android:icon="@drawable/agregar"
+        android:title="Tomar Lista" />
+
+    <item
+        android:id="@+id/buscar"
+        android:icon="@drawable/buscar"
+        android:title="Buscar Lista" />
+
+</menu>
