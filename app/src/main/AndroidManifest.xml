@@ -12,13 +12,7 @@
         android:theme="@style/Theme.AppCompat.NoActionBar"
         tools:targetApi="31">
         <activity
-            android:name=".capturar"
-            android:exported="false" />
-        <activity
-            android:name=".post"
-            android:exported="false" />
-        <activity
-            android:name=".agregar"
+            android:name=".Capturar"
             android:exported="false" />
         <activity
             android:name=".modificar"
@@ -26,15 +20,6 @@
             android:label="@string/title_activity_modificar" />
         <activity
             android:name=".buscar"
-            android:exported="false" />
-        <activity
-            android:name=".ModificarActivity"
-            android:exported="false" />
-        <activity
-            android:name=".AgregarActivity"
-            android:exported="false" />
-        <activity
-            android:name=".BuscarActivity"
             android:exported="false" />
         <activity
             android:name=".Menu"

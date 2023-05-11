@@ -7,33 +7,25 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 
-class Menu : AppCompatActivity() {
-
+class Menu : AppCompatActivity(), BottomNavigationView.OnNavigationItemSelectedListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_menu)
 
-
-
-
         val bottomNavigationView = findViewById<BottomNavigationView>(R.id.nav_view)
-        bottomNavigationView.setOnNavigationItemSelectedListener(this::onNavigationItemSelected)
+        bottomNavigationView.setOnNavigationItemSelectedListener(this)
     }
 
-    private fun onNavigationItemSelected(item: MenuItem): Boolean {
-
+    override fun onNavigationItemSelected(item: MenuItem): Boolean {
         val fragment: Fragment = when (item.itemId) {
             R.id.buscar -> {
-
                 buscar.newInstance()
             }
             R.id.tomarlista -> {
-
-                capturar.newInstance()
+                Capturar.newInstance()
             }
             R.id.modificar -> {
-
                 modificar.newInstance()
             }
             else -> return false
