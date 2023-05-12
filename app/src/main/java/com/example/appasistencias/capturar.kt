@@ -1,5 +1,6 @@
 package com.example.appasistencias
 
+import android.app.DatePickerDialog
 import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -7,26 +8,39 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.ContentProviderCompat.requireContext
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import java.time.LocalDate
+import java.util.*
 
 
 class Capturar : Fragment() {
     private val alumnos = arrayOf(
+        Alumno("primero", LocalDate.now(), false),
+        Alumno("Pedro", LocalDate.now(), false),
+        Alumno("María", LocalDate.now(), false),
+        Alumno("Luisa", LocalDate.now(), false),
+        Alumno("Roberto", LocalDate.now(), false),
         Alumno("Juan", LocalDate.now(), false),
         Alumno("Pedro", LocalDate.now(), false),
         Alumno("María", LocalDate.now(), false),
         Alumno("Luisa", LocalDate.now(), false),
-        Alumno("Roberto", LocalDate.now(), false)
+        Alumno("Roberto", LocalDate.now(), false),
+        Alumno("Juan", LocalDate.now(), false),
+        Alumno("Pedro", LocalDate.now(), false),
+        Alumno("María", LocalDate.now(), false),
+        Alumno("Luisa", LocalDate.now(), false),
+        Alumno("Roberto", LocalDate.now(), false),
+        Alumno("Juan", LocalDate.now(), false),
+        Alumno("Pedro", LocalDate.now(), false),
+        Alumno("María", LocalDate.now(), false),
+        Alumno("Luisa", LocalDate.now(), false),
+        Alumno("ultimo", LocalDate.now(), false)
     )
 
-    private var holder: ViewHolder? = null
-
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.activity_capturar, container, false)
         return view
@@ -45,12 +59,10 @@ class Capturar : Fragment() {
             elementosAdapter.notifyDataSetChanged()
         }
 
-
         val btnGuardar = Button(requireContext())
         btnGuardar.id = View.generateViewId()
         btnGuardar.layoutParams = ConstraintLayout.LayoutParams(
-            ConstraintLayout.LayoutParams.WRAP_CONTENT,
-            ConstraintLayout.LayoutParams.WRAP_CONTENT
+            ConstraintLayout.LayoutParams.WRAP_CONTENT, ConstraintLayout.LayoutParams.WRAP_CONTENT
         )
         btnGuardar.text = "Guardar"
         btnGuardar.background =
@@ -61,12 +73,11 @@ class Capturar : Fragment() {
         constraintLayout.addView(btnGuardar)
 
         val params = btnGuardar.layoutParams as ConstraintLayout.LayoutParams
-        params.bottomToTop = R.id.guideline3
+
         params.endToEnd = R.id.listView
         params.horizontalBias = 0.85f
         params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
         params.topToBottom = R.id.listView
-        params.verticalBias = 0.005f
 
         btnGuardar.layoutParams = params
     }
@@ -76,22 +87,13 @@ class Capturar : Fragment() {
         Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show()
     }
 
-
     companion object {
         fun newInstance(): Capturar = Capturar()
     }
 
     class Alumno(
-        val nombre: String,
-        val fecha: LocalDate,
-        var asistencia: Boolean
+        val nombre: String, val fecha: LocalDate, var asistencia: Boolean
     )
-
-    private class ViewHolder {
-        lateinit var checkBox: CheckBox
-        lateinit var btnGuardar: Button
-        lateinit var tvalumno: TextView
-    }
 }
 
 class Elementos(private val contexto: Context, private val alumnos: Array<Capturar.Alumno>) :
@@ -121,12 +123,15 @@ class Elementos(private val contexto: Context, private val alumnos: Array<Captur
         }
 
         val alumno = alumnos[i]
+        holder.checkBox.visibility = View.VISIBLE
+        holder.tvalumno.visibility = View.VISIBLE
         holder.checkBox.isChecked = alumno.asistencia
         holder.tvalumno.text = alumno.nombre
 
         holder.checkBox.setOnCheckedChangeListener { _, isChecked ->
             alumno.asistencia = isChecked
-
+            val mensaje = "¡si vino!"
+            Toast.makeText(contexto, mensaje, Toast.LENGTH_SHORT).show()
         }
 
         return vista!!
@@ -143,7 +148,6 @@ class Elementos(private val contexto: Context, private val alumnos: Array<Captur
     override fun getItemId(position: Int): Long {
         return 0
     }
-
 
     fun toggleAsistencia(position: Int) {
         aver[position] = !aver[position]
