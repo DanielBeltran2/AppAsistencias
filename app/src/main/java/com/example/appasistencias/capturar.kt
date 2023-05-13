@@ -2,11 +2,13 @@ package com.example.appasistencias
 
 import android.app.DatePickerDialog
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.annotation.RequiresApi
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContentProviderCompat.requireContext
 import androidx.core.content.ContextCompat
@@ -16,6 +18,7 @@ import java.util.*
 
 
 class Capturar : Fragment() {
+    @RequiresApi(Build.VERSION_CODES.O)
     private val alumnos = arrayOf(
         Alumno("primero", LocalDate.now(), false),
         Alumno("Pedro", LocalDate.now(), false),
@@ -46,6 +49,7 @@ class Capturar : Fragment() {
         return view
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -72,15 +76,40 @@ class Capturar : Fragment() {
         val constraintLayout = view.findViewById<ConstraintLayout>(R.id.constraintLayout)
         constraintLayout.addView(btnGuardar)
 
-        val params = btnGuardar.layoutParams as ConstraintLayout.LayoutParams
+        val paramsBtnGuardar = btnGuardar.layoutParams as ConstraintLayout.LayoutParams
+        paramsBtnGuardar.endToEnd = R.id.listView
+        paramsBtnGuardar.horizontalBias = 0.85f
+        paramsBtnGuardar.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+        paramsBtnGuardar.topToBottom = R.id.listView
 
-        params.endToEnd = R.id.listView
-        params.horizontalBias = 0.85f
-        params.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
-        params.topToBottom = R.id.listView
+        btnGuardar.layoutParams = paramsBtnGuardar
 
-        btnGuardar.layoutParams = params
+        val seleccionarGrupos = Spinner(requireContext())
+        seleccionarGrupos.id = View.generateViewId()
+        seleccionarGrupos.layoutParams = ConstraintLayout.LayoutParams(
+            ConstraintLayout.LayoutParams.WRAP_CONTENT, ConstraintLayout.LayoutParams.WRAP_CONTENT
+        )
+        seleccionarGrupos.background =
+            ContextCompat.getDrawable(requireContext(), R.drawable.button_rounded)
+
+        // Agregar elementos al Spinner
+        val grupos = arrayOf("Grupo 1", "Grupo 2", "Grupo 3", "Grupo 4")
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
+        seleccionarGrupos.adapter = adapter
+
+        val paramsSeleccionarGrupos = ConstraintLayout.LayoutParams(
+            ConstraintLayout.LayoutParams.WRAP_CONTENT, ConstraintLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+            endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            topToBottom = btnGuardar.id
+            marginStart = 16
+            marginEnd = 16
+        }
+
+        constraintLayout.addView(seleccionarGrupos, paramsSeleccionarGrupos)
     }
+
 
     private fun accionBoton(btnGuardar: Button) {
         val mensaje = "¡Se han guardado los datos con exito!"
@@ -130,8 +159,7 @@ class Elementos(private val contexto: Context, private val alumnos: Array<Captur
 
         holder.checkBox.setOnCheckedChangeListener { _, isChecked ->
             alumno.asistencia = isChecked
-            val mensaje = "¡si vino!"
-            Toast.makeText(contexto, mensaje, Toast.LENGTH_SHORT).show()
+            //cositas
         }
 
         return vista!!
