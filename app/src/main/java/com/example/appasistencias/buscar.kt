@@ -12,11 +12,23 @@ import androidx.annotation.RequiresApi
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import okhttp3.*
+import org.json.JSONObject
+import java.io.IOException
 import java.time.LocalDate
 import java.util.*
 
 
-class buscar : Fragment() {
+class buscar(clase: Any?) : Fragment() {
+
+    private var idUsuario: String = ""
+
+    init {
+        if (clase is Clase) {
+            idUsuario = clase.id
+        }
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     private val alumnosBus = arrayOf(
         Alumnobus("primero", LocalDate.now(), true),
@@ -98,11 +110,6 @@ class buscar : Fragment() {
         seleccionarGrupos.background =
             ContextCompat.getDrawable(requireContext(), R.drawable.button_rounded)
 
-        // Agregar elementos al Spinner
-        val grupos = arrayOf("Grupo 1", "Grupo 2", "Grupo 3", "Grupo 4")
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
-        seleccionarGrupos.adapter = adapter
-
         constraintLayout.addView(seleccionarGrupos)
 
         val paramsSeleccionarGrupos = ConstraintLayout.LayoutParams(
@@ -117,7 +124,56 @@ class buscar : Fragment() {
         }
 
         seleccionarGrupos.layoutParams = paramsSeleccionarGrupos
+
+        obtenerGrupos(idUsuario) { grupos ->
+            requireActivity().runOnUiThread {
+                val adapter =
+                    ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
+                seleccionarGrupos.adapter = adapter
+            }
+        }
     }
+
+    private fun obtenerGrupos(idUsuario: String, callback: (List<String>) -> Unit) {
+        val url = "http://165.232.118.127:8000/getgruposm"
+
+        val jsonObject = JSONObject()
+        jsonObject.put("maestro_id", idUsuario)
+
+
+
+        val requestBody = RequestBody.create(MediaType.parse("application/json"), jsonObject.toString())
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                val responseData = response.body()?.string()
+                val grupoIds = mutableListOf<String>()
+
+                if (responseData != null) {
+                    val jsonResponse = JSONObject(responseData)
+                    val gruposjson = jsonResponse.getJSONArray("grupos")
+
+                    for (i in 0 until gruposjson.length()) {
+                        val grupoId = "Grupo "+gruposjson.getJSONObject(i).getString("id")
+                        grupoIds.add(grupoId)
+                    }
+                }
+
+                callback(grupoIds)
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                // Manejar el error de conexión o solicitud fallida aquí
+            }
+        })
+    }
+
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun showDatePicker() {
@@ -147,13 +203,18 @@ class buscar : Fragment() {
     }
 
     companion object {
-        fun newInstance(): buscar = buscar()
+        fun newInstance(clase: Any?): buscar = buscar(clase)
+
     }
 
     class Alumnobus(
         val nombre: String, val fecha: LocalDate, var asistencia: Boolean
     )
+
+
+
 }
+
 class Elementosbus(
     private val contexto: Context,
     private val alumnobus: Array<buscar.Alumnobus>
@@ -168,6 +229,7 @@ class Elementosbus(
             aver[i] = false
         }
     }
+
     override fun getView(i: Int, convertView: View?, parent: ViewGroup): View {
         var vista = convertView
         val holder: ViewHolder
@@ -218,11 +280,4 @@ class Elementosbus(
         lateinit var tvalumno: TextView
     }
 
-    fun imprimir() {
-        for (i in 0 until alumnobus.size) {
-            val alumno = alumnobus[i]
-            val estadoAsistencia = if (alumno.asistencia) "Asistió" else "No asistió"
-            println("Alumno ${i + 1}: ${alumno.nombre} - $estadoAsistencia")
-        }
-    }
 }

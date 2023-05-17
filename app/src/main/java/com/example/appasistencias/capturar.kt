@@ -1,6 +1,5 @@
 package com.example.appasistencias
 
-import android.app.DatePickerDialog
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
@@ -10,14 +9,25 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.annotation.RequiresApi
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.content.ContentProviderCompat.requireContext
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import okhttp3.*
+import org.json.JSONObject
+import java.io.IOException
 import java.time.LocalDate
 import java.util.*
 
 
-class Capturar : Fragment() {
+class Capturar(clase: Any?) : Fragment() {
+
+    private var idUsuario: String = ""
+
+    init {
+        if (clase is Clase) {
+            idUsuario = clase.id
+        }
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     private val alumnos = arrayOf(
         Alumno("primero", LocalDate.now(), false),
@@ -92,10 +102,15 @@ class Capturar : Fragment() {
         seleccionarGrupos.background =
             ContextCompat.getDrawable(requireContext(), R.drawable.button_rounded)
 
-        // Agregar elementos al Spinner
-        val grupos = arrayOf("Grupo 1", "Grupo 2", "Grupo 3", "Grupo 4")
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
-        seleccionarGrupos.adapter = adapter
+
+        obtenerGrupos(idUsuario) { grupos ->
+            requireActivity().runOnUiThread {
+                val adapter =
+                    ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
+                seleccionarGrupos.adapter = adapter
+            }
+        }
+
 
         val paramsSeleccionarGrupos = ConstraintLayout.LayoutParams(
             ConstraintLayout.LayoutParams.WRAP_CONTENT, ConstraintLayout.LayoutParams.WRAP_CONTENT
@@ -110,6 +125,45 @@ class Capturar : Fragment() {
         constraintLayout.addView(seleccionarGrupos, paramsSeleccionarGrupos)
     }
 
+    private fun obtenerGrupos(idUsuario: String, callback: (List<String>) -> Unit) {
+        val url = "http://165.232.118.127:8000/getgruposm"
+
+        val jsonObject = JSONObject()
+        jsonObject.put("maestro_id", idUsuario)
+
+
+        val requestBody =
+            RequestBody.create(MediaType.parse("application/json"), jsonObject.toString())
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                val responseData = response.body()?.string()
+                val grupoIds = mutableListOf<String>()
+
+                if (responseData != null) {
+                    val jsonResponse = JSONObject(responseData)
+                    val gruposjson = jsonResponse.getJSONArray("grupos")
+
+                    for (i in 0 until gruposjson.length()) {
+                        val grupoId = "Grupo " + gruposjson.getJSONObject(i).getString("id")
+                        grupoIds.add(grupoId)
+                    }
+                }
+
+                callback(grupoIds)
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                // Manejar el error de conexión o solicitud fallida aquí
+            }
+        })
+    }
 
     private fun accionBoton(btnGuardar: Button) {
         val mensaje = "¡Se han guardado los datos con exito!"
@@ -117,7 +171,7 @@ class Capturar : Fragment() {
     }
 
     companion object {
-        fun newInstance(): Capturar = Capturar()
+        fun newInstance(clase: Any?): Capturar = Capturar(clase)
     }
 
     class Alumno(

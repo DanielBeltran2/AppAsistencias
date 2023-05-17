@@ -2,7 +2,6 @@ package com.example.appasistencias
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -29,11 +28,13 @@ class MainActivity : AppCompatActivity() {
 
         buttonIngresar.setOnClickListener {
             leer(usuario, contraseña)
+
         }
     }
 
     private fun leer(usuario: EditText, contraseña: EditText) {
-        val url = "http://25.64.102.162/apitec/public/Login"
+        val url = "http://165.232.118.127:8000/loginapp"
+        val requestQueue = Volley.newRequestQueue(this)
 
         val stringRequest = object : StringRequest(
             Method.POST,
@@ -42,22 +43,31 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val jsonResponse = JSONObject(response)
                     val status = jsonResponse.getInt("status")
+                    val rol = jsonResponse.getString("rol_id")
+                    val idUsuario = jsonResponse.getString("maestro_id")
+                    val clase = Clase(rol, idUsuario)
                     if (status == 200) {
-                        val ingresar = Intent(this@MainActivity, Menu::class.java)
-                        startActivity(ingresar)
+                        val rolInt = rol.toIntOrNull()
+                        if (rolInt == 2) {
+                            val ingresar = Intent(this, Menu::class.java)
+                            ingresar.putExtra("clase", clase)
+                            startActivity(ingresar)
+                        }else{
+                            Toast.makeText(this, "El Usuario no es un Maestro", Toast.LENGTH_SHORT).show()
+
+                        }
+
                     } else {
                         val message = jsonResponse.getString("message")
-                        Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: JSONException) {
-                    Toast.makeText(this@MainActivity, "Error al procesar la respuesta", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Error al procesar la respuesta", Toast.LENGTH_SHORT).show()
                 }
             },
             Response.ErrorListener { error ->
-                // Manejar errores de la solicitud
-                Toast.makeText(this@MainActivity, error.toString(), Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, error.toString(), Toast.LENGTH_SHORT).show()
             }
-
         ) {
             override fun getParams(): MutableMap<String, String> {
                 val params = HashMap<String, String>()
@@ -67,8 +77,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Agregar la solicitud a una cola de solicitudes (por ejemplo, usando Volley)
-        val requestQueue = Volley.newRequestQueue(this)
         requestQueue.add(stringRequest)
     }
+
+
 }

@@ -12,11 +12,22 @@ import androidx.annotation.RequiresApi
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import okhttp3.*
+import org.json.JSONObject
+import java.io.IOException
 import java.time.LocalDate
 import java.util.*
 
 
-class modificar : Fragment() {
+class modificar(clase: Any?) : Fragment() {
+    private var idUsuario: String = ""
+
+    init {
+        if (clase is Clase) {
+            idUsuario = clase.id
+        }
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     private val alumnosMod = arrayOf(
         AlumnoMdd("primero", LocalDate.now(), true),
@@ -117,9 +128,13 @@ class modificar : Fragment() {
             ContextCompat.getDrawable(requireContext(), R.drawable.button_rounded)
 
         // Agregar elementos al Spinner
-        val grupos = arrayOf("Grupo 1", "Grupo 2", "Grupo 3", "Grupo 4")
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
-        seleccionarGrupos.adapter = adapter
+        obtenerGrupos(idUsuario) { grupos ->
+            requireActivity().runOnUiThread {
+                val adapter =
+                    ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
+                seleccionarGrupos.adapter = adapter
+            }
+        }
 
         val paramsSeleccionarGrupos = ConstraintLayout.LayoutParams(
             ConstraintLayout.LayoutParams.WRAP_CONTENT, ConstraintLayout.LayoutParams.WRAP_CONTENT
@@ -135,6 +150,45 @@ class modificar : Fragment() {
         constraintLayout.addView(seleccionarGrupos, paramsSeleccionarGrupos)
     }
 
+    private fun obtenerGrupos(idUsuario: String, callback: (List<String>) -> Unit) {
+        val url = "http://165.232.118.127:8000/getgruposm"
+
+        val jsonObject = JSONObject()
+        jsonObject.put("maestro_id", idUsuario)
+
+
+        val requestBody =
+            RequestBody.create(MediaType.parse("application/json"), jsonObject.toString())
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                val responseData = response.body()?.string()
+                val grupoIds = mutableListOf<String>()
+
+                if (responseData != null) {
+                    val jsonResponse = JSONObject(responseData)
+                    val gruposjson = jsonResponse.getJSONArray("grupos")
+
+                    for (i in 0 until gruposjson.length()) {
+                        val grupoId = "Grupo " + gruposjson.getJSONObject(i).getString("id")
+                        grupoIds.add(grupoId)
+                    }
+                }
+
+                callback(grupoIds)
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                // Manejar el error de conexión o solicitud fallida aquí
+            }
+        })
+    }
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun showDatePicker() {
@@ -164,13 +218,14 @@ class modificar : Fragment() {
     }
 
     companion object {
-        fun newInstance(): modificar = modificar()
+        fun newInstance(clase: Any?): modificar = modificar(clase)
     }
 
     class AlumnoMdd(
         val nombre: String, val fecha: LocalDate, var asistencia: Boolean
     )
 }
+
 class ElementosMod(
     private val contexto: Context,
     private val alumnosmod: Array<modificar.AlumnoMdd>
@@ -185,6 +240,7 @@ class ElementosMod(
             aver[i] = false
         }
     }
+
     override fun getView(i: Int, convertView: View?, parent: ViewGroup): View {
         var vista = convertView
         val holder: ViewHolder
@@ -235,11 +291,37 @@ class ElementosMod(
         lateinit var tvalumno: TextView
     }
 
-    fun imprimir() {
-        for (i in 0 until alumnosmod.size) {
-            val alumno = alumnosmod[i]
-            val estadoAsistencia = if (alumno.asistencia) "Asistió" else "No asistió"
-            println("Alumno ${i + 1}: ${alumno.nombre} - $estadoAsistencia")
-        }
+
+    fun obtenerGrupos(idMaestro: String) {
+        val url = "http://165.232.118.127:8000/getgruposm"
+
+        val jsonObject = JSONObject()
+        jsonObject.put("maestro_id", idMaestro)
+
+        val requestBody =
+            RequestBody.create(MediaType.parse("application/json"), jsonObject.toString())
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                val responseData = response.body()?.string()
+                // Procesar la respuesta JSON aquí
+                if (responseData != null) {
+                    val jsonResponse = JSONObject(responseData)
+                    // Extraer los grupos del JSON y realizar las operaciones necesarias
+                    val grupos = jsonResponse.getJSONArray("id")
+                    // ...
+                }
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                // Manejar el error de conexión o solicitud fallida aquí
+            }
+        })
     }
 }
