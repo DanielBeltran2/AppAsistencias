@@ -12,15 +12,19 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import okhttp3.*
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.time.LocalDate
-import java.util.*
+import java.time.format.DateTimeFormatter
 
 
 class Capturar(clase: Any?) : Fragment() {
 
     private var idUsuario: String = ""
+    private val alumnos = mutableListOf<Alumno>()
+    private lateinit var elementosAdapter: Elementos
+
 
     init {
         if (clase is Clase) {
@@ -28,29 +32,7 @@ class Capturar(clase: Any?) : Fragment() {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private val alumnos = arrayOf(
-        Alumno("primero", LocalDate.now(), false),
-        Alumno("Pedro", LocalDate.now(), false),
-        Alumno("María", LocalDate.now(), false),
-        Alumno("Luisa", LocalDate.now(), false),
-        Alumno("Roberto", LocalDate.now(), false),
-        Alumno("Juan", LocalDate.now(), false),
-        Alumno("Pedro", LocalDate.now(), false),
-        Alumno("María", LocalDate.now(), false),
-        Alumno("Luisa", LocalDate.now(), false),
-        Alumno("Roberto", LocalDate.now(), false),
-        Alumno("Juan", LocalDate.now(), false),
-        Alumno("Pedro", LocalDate.now(), false),
-        Alumno("María", LocalDate.now(), false),
-        Alumno("Luisa", LocalDate.now(), false),
-        Alumno("Roberto", LocalDate.now(), false),
-        Alumno("Juan", LocalDate.now(), false),
-        Alumno("Pedro", LocalDate.now(), false),
-        Alumno("María", LocalDate.now(), false),
-        Alumno("Luisa", LocalDate.now(), false),
-        Alumno("ultimo", LocalDate.now(), false)
-    )
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -63,9 +45,10 @@ class Capturar(clase: Any?) : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+
         val listView = view.findViewById<ListView>(R.id.listView)
 
-        val elementosAdapter = Elementos(requireContext(), alumnos)
+        elementosAdapter = Elementos(requireContext(), alumnos)
         listView.adapter = elementosAdapter
 
         listView.setOnItemClickListener { _, _, position, _ ->
@@ -102,11 +85,33 @@ class Capturar(clase: Any?) : Fragment() {
         seleccionarGrupos.background =
             ContextCompat.getDrawable(requireContext(), R.drawable.button_rounded)
 
+        seleccionarGrupos.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>, view: View?, position: Int, id: Long
+            ) {
+                val grupoSeleccionado = parent.getItemAtPosition(position).toString()
+                val grupoId = grupoSeleccionado.substringAfter("Grupo ").toInt()
+                obtenerAlumnos(grupoId) { alumnos, error ->
+                    if (error != null) {
+                        // Manejar el error aquí
+                    } else if (alumnos != null) {
+                        this@Capturar.alumnos.clear()
+                        this@Capturar.alumnos.addAll(alumnos)
 
+                        activity?.runOnUiThread {
+                            elementosAdapter.notifyDataSetChanged()
+                        }
+                    }
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {
+                // Lógica que se ejecuta cuando no se ha seleccionado ningún elemento
+            }
+        }
         obtenerGrupos(idUsuario) { grupos ->
             requireActivity().runOnUiThread {
-                val adapter =
-                    ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
+                val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
                 seleccionarGrupos.adapter = adapter
             }
         }
@@ -125,12 +130,64 @@ class Capturar(clase: Any?) : Fragment() {
         constraintLayout.addView(seleccionarGrupos, paramsSeleccionarGrupos)
     }
 
+    private fun obtenerAlumnos(grupoId: Int, callback: (List<Alumno>?, error: String?) -> Unit) {
+        val url = "http://165.232.118.127:8000/getalumnosapp"
+
+        val jsonObject = JSONObject()
+        jsonObject.put("grupo_id", grupoId)
+
+        val requestBody =
+            RequestBody.create(MediaType.parse("application/json"), jsonObject.toString())
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+
+        client.newCall(request).enqueue(object : Callback {
+            @RequiresApi(Build.VERSION_CODES.O)
+            override fun onResponse(call: Call, response: Response) {
+                val responseData = response.body()?.string()
+
+                if (responseData != null) {
+                    val jsonResponse = JSONArray(responseData)
+                    val nuevosAlumnos = mutableListOf<Alumno>()
+
+                    for (i in 0 until jsonResponse.length()) {
+                        val alumnoJson = jsonResponse.getJSONObject(i)
+                        val nombre = alumnoJson.getString("nombre")
+                        val id = alumnoJson.getString("alumno_id")
+                        val fecha = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
+                        val asistencia = false
+                        val alumno = Alumno(nombre, fecha, asistencia, id)
+                        nuevosAlumnos.add(alumno)
+                    }
+
+                    activity?.runOnUiThread {
+                        alumnos.clear()
+                        alumnos.addAll(nuevosAlumnos)
+                        elementosAdapter.notifyDataSetChanged()
+                    }
+
+                    callback(nuevosAlumnos, null)
+                } else {
+                    callback(null, "Error: No se pudo obtener la respuesta del servidor")
+                }
+            }
+
+
+            override fun onFailure(call: Call, e: IOException) {
+                callback(null, "Error de conexión: ${e.message}")
+            }
+        })
+    }
+
     private fun obtenerGrupos(idUsuario: String, callback: (List<String>) -> Unit) {
         val url = "http://165.232.118.127:8000/getgruposm"
 
         val jsonObject = JSONObject()
         jsonObject.put("maestro_id", idUsuario)
-
 
         val requestBody =
             RequestBody.create(MediaType.parse("application/json"), jsonObject.toString())
@@ -166,7 +223,7 @@ class Capturar(clase: Any?) : Fragment() {
     }
 
     private fun accionBoton(btnGuardar: Button) {
-        val mensaje = "¡Se han guardado los datos con exito!"
+        val mensaje = "¡Se han guardado los datos con éxito!"
         Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show()
     }
 
@@ -175,11 +232,11 @@ class Capturar(clase: Any?) : Fragment() {
     }
 
     class Alumno(
-        val nombre: String, val fecha: LocalDate, var asistencia: Boolean
+        val nombre: String, val fecha: String, var asistencia: Boolean, val id: String
     )
 }
 
-class Elementos(private val contexto: Context, private val alumnos: Array<Capturar.Alumno>) :
+class Elementos(private val contexto: Context, private val alumnos: MutableList<Capturar.Alumno>) :
     BaseAdapter() {
     private val inflater: LayoutInflater =
         contexto.getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
