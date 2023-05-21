@@ -33,7 +33,6 @@ class Capturar(clase: Any?) : Fragment() {
     }
 
 
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
@@ -90,7 +89,7 @@ class Capturar(clase: Any?) : Fragment() {
                 parent: AdapterView<*>, view: View?, position: Int, id: Long
             ) {
                 val grupoSeleccionado = parent.getItemAtPosition(position).toString()
-                val grupoId = grupoSeleccionado.substringAfter("Grupo ").toInt()
+                val grupoId = grupoSeleccionado.substringAfter("Grupo ").toInt().toString()
                 obtenerAlumnos(grupoId) { alumnos, error ->
                     if (error != null) {
                         // Manejar el error aquí
@@ -111,7 +110,8 @@ class Capturar(clase: Any?) : Fragment() {
         }
         obtenerGrupos(idUsuario) { grupos ->
             requireActivity().runOnUiThread {
-                val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
+                val adapter =
+                    ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, grupos)
                 seleccionarGrupos.adapter = adapter
             }
         }
@@ -130,7 +130,7 @@ class Capturar(clase: Any?) : Fragment() {
         constraintLayout.addView(seleccionarGrupos, paramsSeleccionarGrupos)
     }
 
-    private fun obtenerAlumnos(grupoId: Int, callback: (List<Alumno>?, error: String?) -> Unit) {
+    private fun obtenerAlumnos(grupoId: String, callback: (List<Alumno>?, error: String?) -> Unit) {
         val url = "http://165.232.118.127:8000/getalumnosapp"
 
         val jsonObject = JSONObject()
@@ -160,7 +160,7 @@ class Capturar(clase: Any?) : Fragment() {
                         val id = alumnoJson.getString("alumno_id")
                         val fecha = LocalDate.now().format(DateTimeFormatter.ISO_DATE)
                         val asistencia = false
-                        val alumno = Alumno(nombre, fecha, asistencia, id)
+                        val alumno = Alumno(nombre, fecha, asistencia, id, grupoId)
                         nuevosAlumnos.add(alumno)
                     }
 
@@ -222,18 +222,67 @@ class Capturar(clase: Any?) : Fragment() {
         })
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun accionBoton(btnGuardar: Button) {
-        val mensaje = "¡Se han guardado los datos con éxito!"
-        Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show()
+        val asistencias = mutableListOf<Asistencia>()
+        val fechaActual = LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
+
+        for (alumno in alumnos) {
+            val asistencia = Asistencia(fechaActual, alumno.grupoId, alumno.id, if (alumno.asistencia) 1 else 0)
+            asistencias.add(asistencia)
+        }
+
+        val asistenciasJson = JSONObject()
+        asistenciasJson.put("asistencias", JSONArray(asistencias.map { it.toJsonObject() }))
+
+        val url = "http://165.232.118.127:8000/insertasistencia"
+        val requestBody = RequestBody.create(MediaType.parse("application/json"), asistenciasJson.toString())
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                requireActivity().runOnUiThread {
+                    val mensaje = "¡Se han guardado los datos con éxito!"
+                    Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                requireActivity().runOnUiThread {
+                    val mensaje = "¡No se pudieron guardar los datos!"
+                    Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show()
+                }
+            }
+        })
     }
+
+    data class Asistencia(
+        val fecha: String,
+        val grupoId: String,
+        val alumnoId: String,
+        val asistencia: Int
+    ) {
+        fun toJsonObject(): JSONObject {
+            val jsonObject = JSONObject()
+            jsonObject.put("fecha", fecha)
+            jsonObject.put("grupo_id", grupoId)
+            jsonObject.put("alumno_id", alumnoId)
+            jsonObject.put("asistencia", asistencia)
+            return jsonObject
+        }
+    }
+
 
     companion object {
         fun newInstance(clase: Any?): Capturar = Capturar(clase)
     }
 
-    class Alumno(
-        val nombre: String, val fecha: String, var asistencia: Boolean, val id: String
-    )
+    class Alumno(val nombre: String, val fecha: String, var asistencia: Boolean, val id: String, var grupoId: String)
+
 }
 
 class Elementos(private val contexto: Context, private val alumnos: MutableList<Capturar.Alumno>) :
