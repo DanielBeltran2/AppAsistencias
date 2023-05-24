@@ -16,12 +16,18 @@ import okhttp3.*
 import org.json.JSONObject
 import java.io.IOException
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 
 class buscar(clase: Any?) : Fragment() {
 
     private var idUsuario: String = ""
+    private val alumnos = mutableListOf<Alumnobus>()
+    private var fecha: String = ""
+    private var grupoId: String = ""
+
+    private lateinit var elementosAdapter: Elementosbus
 
     init {
         if (clase is Clase) {
@@ -29,29 +35,6 @@ class buscar(clase: Any?) : Fragment() {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private val alumnosBus = arrayOf(
-        Alumnobus("primero", LocalDate.now(), true),
-        Alumnobus("Pedro", LocalDate.now(), false),
-        Alumnobus("María", LocalDate.now(), true),
-        Alumnobus("Luisa", LocalDate.now(), false),
-        Alumnobus("Roberto", LocalDate.now(), true),
-        Alumnobus("Juan", LocalDate.now(), false),
-        Alumnobus("Pedro", LocalDate.now(), true),
-        Alumnobus("María", LocalDate.now(), false),
-        Alumnobus("Luisa", LocalDate.now(), false),
-        Alumnobus("Roberto", LocalDate.now(), false),
-        Alumnobus("Juan", LocalDate.now(), false),
-        Alumnobus("Pedro", LocalDate.now(), false),
-        Alumnobus("María", LocalDate.now(), false),
-        Alumnobus("Luisa", LocalDate.now(), false),
-        Alumnobus("Roberto", LocalDate.now(), false),
-        Alumnobus("Juan", LocalDate.now(), false),
-        Alumnobus("Pedro", LocalDate.now(), false),
-        Alumnobus("María", LocalDate.now(), false),
-        Alumnobus("Luisa", LocalDate.now(), false),
-        Alumnobus("ultimo", LocalDate.now(), false)
-    )
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -68,7 +51,7 @@ class buscar(clase: Any?) : Fragment() {
 
         val listView = view.findViewById<ListView>(R.id.listView)
 
-        val elementosAdapter = Elementosbus(requireContext(), alumnosBus)
+        elementosAdapter = Elementosbus(requireContext(), alumnos)
         listView.adapter = elementosAdapter
 
         listView.setOnItemClickListener { _, _, position, _ ->
@@ -109,6 +92,19 @@ class buscar(clase: Any?) : Fragment() {
         )
         seleccionarGrupos.background =
             ContextCompat.getDrawable(requireContext(), R.drawable.button_rounded)
+        seleccionarGrupos.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>, view: View?, position: Int, id: Long
+            ) {
+                val grupoSeleccionado = parent.getItemAtPosition(position).toString()
+                grupoId = grupoSeleccionado.substringAfter("Grupo ").toInt().toString()
+
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {
+                // Lógica que se ejecuta cuando no se ha seleccionado ningún elemento
+            }
+        }
 
         constraintLayout.addView(seleccionarGrupos)
 
@@ -134,6 +130,98 @@ class buscar(clase: Any?) : Fragment() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun showDatePicker() {
+        val calendar = Calendar.getInstance()
+        val year = calendar.get(Calendar.YEAR)
+        val month = calendar.get(Calendar.MONTH)
+        val day = calendar.get(Calendar.DAY_OF_MONTH)
+
+        val datePickerDialog = DatePickerDialog(
+            requireContext(),
+            DatePickerDialog.OnDateSetListener { _, selectedYear, selectedMonth, selectedDay ->
+                val selectedDate = LocalDate.of(selectedYear, selectedMonth + 1, selectedDay)
+                fecha = selectedDate.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
+                obtenerAlumnos { alumnos, error ->
+                    if (error != null) {
+                        // Manejar el error
+                    } else if (alumnos != null) {
+                        this@buscar.alumnos.clear()
+                        this@buscar.alumnos.addAll(alumnos)
+
+                        activity?.runOnUiThread {
+                            elementosAdapter.notifyDataSetChanged()
+                        }
+                    }
+                }
+            },
+            year,
+            month,
+            day
+        )
+
+        datePickerDialog.show()
+    }
+
+    private fun obtenerAlumnos(
+        callback: (List<Alumnobus>?, error: String?) -> Unit
+    ) {
+        val url = "http://165.232.118.127:8000/asistenciafecha"
+
+        val jsonObject = JSONObject()
+        jsonObject.put("fecha", fecha)
+        jsonObject.put("grupo_id", grupoId)
+
+        val requestBody =
+            RequestBody.create(MediaType.parse("application/json"), jsonObject.toString())
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+
+        client.newCall(request).enqueue(object : Callback {
+            @RequiresApi(Build.VERSION_CODES.O)
+            override fun onResponse(call: Call, response: Response) {
+                val responseData = response.body()?.string()
+
+                if (responseData != null) {
+                    val jsonResponse = JSONObject(responseData)
+                    val grupoArray = jsonResponse.getJSONArray("grupo")
+                    val nuevosAlumnos = mutableListOf<Alumnobus>()
+
+                    for (i in 0 until grupoArray.length()) {
+                        val alumnoJson = grupoArray.getJSONObject(i)
+                        val id = alumnoJson.getString("id")
+                        val nombre = alumnoJson.getString("nombre")
+                        val asistenciaString = alumnoJson.getString("asistencia")
+                        val asistencia = asistenciaString == "1"
+
+                        val alumno = Alumnobus(nombre, fecha, asistencia, id, grupoId)
+                        nuevosAlumnos.add(alumno)
+                    }
+
+                    activity?.runOnUiThread {
+                        alumnos.clear()
+                        alumnos.addAll(nuevosAlumnos)
+                        elementosAdapter.notifyDataSetChanged()
+                    }
+
+                    callback(nuevosAlumnos, null)
+                } else {
+                    callback(null, "Error: No se pudo obtener la respuesta del servidor")
+                }
+            }
+
+
+            override fun onFailure(call: Call, e: IOException) {
+                callback(null, "Error de conexión: ${e.message}")
+            }
+        })
+    }
+
+
     private fun obtenerGrupos(idUsuario: String, callback: (List<String>) -> Unit) {
         val url = "http://165.232.118.127:8000/getgruposm"
 
@@ -141,8 +229,8 @@ class buscar(clase: Any?) : Fragment() {
         jsonObject.put("maestro_id", idUsuario)
 
 
-
-        val requestBody = RequestBody.create(MediaType.parse("application/json"), jsonObject.toString())
+        val requestBody =
+            RequestBody.create(MediaType.parse("application/json"), jsonObject.toString())
         val request = Request.Builder()
             .url(url)
             .post(requestBody)
@@ -160,7 +248,7 @@ class buscar(clase: Any?) : Fragment() {
                     val gruposjson = jsonResponse.getJSONArray("grupos")
 
                     for (i in 0 until gruposjson.length()) {
-                        val grupoId = "Grupo "+gruposjson.getJSONObject(i).getString("id")
+                        val grupoId = "Grupo " + gruposjson.getJSONObject(i).getString("id")
                         grupoIds.add(grupoId)
                     }
                 }
@@ -175,28 +263,6 @@ class buscar(clase: Any?) : Fragment() {
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun showDatePicker() {
-        val calendar = Calendar.getInstance()
-        val year = calendar.get(Calendar.YEAR)
-        val month = calendar.get(Calendar.MONTH)
-        val day = calendar.get(Calendar.DAY_OF_MONTH)
-
-        val datePickerDialog = DatePickerDialog(
-            requireContext(),
-            DatePickerDialog.OnDateSetListener { _, selectedYear, selectedMonth, selectedDay ->
-                val selectedDate = LocalDate.of(selectedYear, selectedMonth + 1, selectedDay)
-                // ... Hacer algo con la fecha seleccionada ...
-            },
-            year,
-            month,
-            day
-        )
-
-        datePickerDialog.show()
-    }
-
-
     private fun accionBoton(btnGuardar: Button) {
         val mensaje = "¡Se han guardado los datos con éxito!"
         Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show()
@@ -208,16 +274,19 @@ class buscar(clase: Any?) : Fragment() {
     }
 
     class Alumnobus(
-        val nombre: String, val fecha: LocalDate, var asistencia: Boolean
+        val nombre: String,
+        val fecha: String,
+        var asistencia: Boolean,
+        val id: String,
+        var grupoId: String
     )
-
 
 
 }
 
 class Elementosbus(
     private val contexto: Context,
-    private val alumnobus: Array<buscar.Alumnobus>
+    private val alumnobus: MutableList<buscar.Alumnobus>
 ) :
     BaseAdapter() {
     private val inflater: LayoutInflater =
