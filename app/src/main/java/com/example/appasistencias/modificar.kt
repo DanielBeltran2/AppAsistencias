@@ -13,14 +13,20 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import okhttp3.*
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 
 class modificar(clase: Any?) : Fragment() {
     private var idUsuario: String = ""
+    private val alumnos = mutableListOf<AlumnoMdd>()
+    private var fecha: String = ""
+    private var grupoId: String = ""
+    private lateinit var elementosAdapter: ElementosMod
 
     init {
         if (clase is Clase) {
@@ -28,29 +34,6 @@ class modificar(clase: Any?) : Fragment() {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private val alumnosMod = arrayOf(
-        AlumnoMdd("primero", LocalDate.now(), true),
-        AlumnoMdd("Pedro", LocalDate.now(), false),
-        AlumnoMdd("María", LocalDate.now(), true),
-        AlumnoMdd("Luisa", LocalDate.now(), false),
-        AlumnoMdd("Roberto", LocalDate.now(), true),
-        AlumnoMdd("Juan", LocalDate.now(), false),
-        AlumnoMdd("Pedro", LocalDate.now(), true),
-        AlumnoMdd("María", LocalDate.now(), false),
-        AlumnoMdd("Luisa", LocalDate.now(), false),
-        AlumnoMdd("Roberto", LocalDate.now(), false),
-        AlumnoMdd("Juan", LocalDate.now(), false),
-        AlumnoMdd("Pedro", LocalDate.now(), false),
-        AlumnoMdd("María", LocalDate.now(), false),
-        AlumnoMdd("Luisa", LocalDate.now(), false),
-        AlumnoMdd("Roberto", LocalDate.now(), false),
-        AlumnoMdd("Juan", LocalDate.now(), false),
-        AlumnoMdd("Pedro", LocalDate.now(), false),
-        AlumnoMdd("María", LocalDate.now(), false),
-        AlumnoMdd("Luisa", LocalDate.now(), false),
-        AlumnoMdd("ultimo", LocalDate.now(), false)
-    )
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -67,7 +50,7 @@ class modificar(clase: Any?) : Fragment() {
 
         val listView = view.findViewById<ListView>(R.id.listView)
 
-        val elementosAdapter = ElementosMod(requireContext(), alumnosMod)
+        elementosAdapter = ElementosMod(requireContext(), alumnos)
         listView.adapter = elementosAdapter
 
         listView.setOnItemClickListener { _, _, position, _ ->
@@ -127,7 +110,19 @@ class modificar(clase: Any?) : Fragment() {
         seleccionarGrupos.background =
             ContextCompat.getDrawable(requireContext(), R.drawable.button_rounded)
 
-        // Agregar elementos al Spinner
+        seleccionarGrupos.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>, view: View?, position: Int, id: Long
+            ) {
+                val grupoSeleccionado = parent.getItemAtPosition(position).toString()
+                grupoId = grupoSeleccionado.substringAfter("Grupo ").toInt().toString()
+
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {
+                // Lógica que se ejecuta cuando no se ha seleccionado ningún elemento
+            }
+        }
         obtenerGrupos(idUsuario) { grupos ->
             requireActivity().runOnUiThread {
                 val adapter =
@@ -201,7 +196,19 @@ class modificar(clase: Any?) : Fragment() {
             requireContext(),
             DatePickerDialog.OnDateSetListener { _, selectedYear, selectedMonth, selectedDay ->
                 val selectedDate = LocalDate.of(selectedYear, selectedMonth + 1, selectedDay)
-                // ... Hacer algo con la fecha seleccionada ...
+                fecha = selectedDate.format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
+                obtenerAlumnos { alumnos, error ->
+                    if (error != null) {
+                        // Manejar el error
+                    } else if (alumnos != null) {
+                        this@modificar.alumnos.clear()
+                        this@modificar.alumnos.addAll(alumnos)
+
+                        activity?.runOnUiThread {
+                            elementosAdapter.notifyDataSetChanged()
+                        }
+                    }
+                }
             },
             year,
             month,
@@ -211,10 +218,106 @@ class modificar(clase: Any?) : Fragment() {
         datePickerDialog.show()
     }
 
+    private fun obtenerAlumnos(
+        callback: (List<AlumnoMdd>?, error: String?) -> Unit
+    ) {
+        val url = "http://165.232.118.127:8000/asistenciafecha"
+
+        val jsonObject = JSONObject()
+        jsonObject.put("fecha", fecha)
+        jsonObject.put("grupo_id", grupoId)
+
+        val requestBody =
+            RequestBody.create(MediaType.parse("application/json"), jsonObject.toString())
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+
+        client.newCall(request).enqueue(object : Callback {
+            @RequiresApi(Build.VERSION_CODES.O)
+            override fun onResponse(call: Call, response: Response) {
+                val responseData = response.body()?.string()
+
+                if (responseData != null) {
+                    val jsonResponse = JSONObject(responseData)
+                    val grupoArray = jsonResponse.getJSONArray("grupo")
+                    val nuevosAlumnos = mutableListOf<AlumnoMdd>()
+
+                    for (i in 0 until grupoArray.length()) {
+                        val alumnoJson = grupoArray.getJSONObject(i)
+                        val id = alumnoJson.getString("id")
+                        val nombre = alumnoJson.getString("nombre")
+                        val asistenciaString = alumnoJson.getString("asistencia")
+                        val asistencia = asistenciaString == "1"
+
+                        val alumno = AlumnoMdd(nombre, fecha, asistencia, id, grupoId)
+                        nuevosAlumnos.add(alumno)
+                    }
+
+                    activity?.runOnUiThread {1
+                        alumnos.clear()
+                        alumnos.addAll(nuevosAlumnos)
+                        elementosAdapter.notifyDataSetChanged()
+                    }
+
+                    callback(nuevosAlumnos, null)
+                } else {
+                    callback(null, "Error: No se pudo obtener la respuesta del servidor")
+                }
+            }
+
+
+            override fun onFailure(call: Call, e: IOException) {
+                callback(null, "Error de conexión: ${e.message}")
+            }
+        })
+    }
 
     private fun accionBoton(btnGuardar: Button) {
-        val mensaje = "¡Se han guardado los datos con éxito!"
-        Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show()
+        val asistencias = mutableListOf<Capturar.Asistencia>()
+
+
+        for (alumno in alumnos) {
+            val asistencia =
+                Capturar.Asistencia(
+                    fecha,
+                    alumno.grupoId,
+                    alumno.id,
+                    if (alumno.asistencia) 1 else 0
+                )
+            asistencias.add(asistencia)
+        }
+
+        val asistenciasJson = JSONObject()
+        asistenciasJson.put("asistencias", JSONArray(asistencias.map { it.toJsonObject() }))
+
+        val url = "http://165.232.118.127:8000/insertasistencia"
+        val requestBody =
+            RequestBody.create(MediaType.parse("application/json"), asistenciasJson.toString())
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                requireActivity().runOnUiThread {
+                    val mensaje = "¡Se han guardado los datos con éxito!"
+                    Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                requireActivity().runOnUiThread {
+                    val mensaje = "¡No se pudieron guardar los datos!"
+                    Toast.makeText(requireContext(), mensaje, Toast.LENGTH_SHORT).show()
+                }
+            }
+        })
     }
 
     companion object {
@@ -222,13 +325,17 @@ class modificar(clase: Any?) : Fragment() {
     }
 
     class AlumnoMdd(
-        val nombre: String, val fecha: LocalDate, var asistencia: Boolean
+        val nombre: String,
+        val fecha: String,
+        var asistencia: Boolean,
+        val id: String,
+        var grupoId: String
     )
 }
 
 class ElementosMod(
     private val contexto: Context,
-    private val alumnosmod: Array<modificar.AlumnoMdd>
+    private val alumnosmod: MutableList<modificar.AlumnoMdd>
 ) :
     BaseAdapter() {
     private val inflater: LayoutInflater =
@@ -310,17 +417,17 @@ class ElementosMod(
         client.newCall(request).enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
                 val responseData = response.body()?.string()
-                // Procesar la respuesta JSON aquí
+
                 if (responseData != null) {
                     val jsonResponse = JSONObject(responseData)
-                    // Extraer los grupos del JSON y realizar las operaciones necesarias
+
                     val grupos = jsonResponse.getJSONArray("id")
-                    // ...
+
                 }
             }
 
             override fun onFailure(call: Call, e: IOException) {
-                // Manejar el error de conexión o solicitud fallida aquí
+
             }
         })
     }
